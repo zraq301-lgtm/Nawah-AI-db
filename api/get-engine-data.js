@@ -1,22 +1,33 @@
 export default async function handler(req, res) {
-  // تفعيل الـ CORS لتطبيق الـ Maamoul على الأندرويد
+  // 1. تفعيل الـ CORS بشكل كامل لفتح الأبواب لتطبيق Maamoul
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // إنهاء طلبات OPTIONS فوراً لمنع التعليق
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method === 'POST') {
-    const { module_name, record_id } = req.body;
+  // 2. استقبال طلب الـ GET المباشر الصريح من الواجهة
+  if (req.method === 'GET' || req.method === 'POST') {
+    
+    // 💡 تفكيك الرابط يدوياً لضمان صيد المتغيرات حتى لو غلفها الأندرويد بطريقة معقدة
+    const urlParts = req.url.split('?');
+    const queryString = urlParts.length > 1 ? urlParts[1] : '';
+    const searchParams = new URLSearchParams(queryString);
 
-    // حماية: إنهاء الطلب فوراً إذا كانت البيانات ناقصة
+    const module_name = searchParams.get('module_name') || req.query?.module_name;
+    const record_id = searchParams.get('record_id') || req.query?.record_id;
+
+    // فحص الفتح التجريبي (مثل فتح الرابط في المتصفح بدون موديول)
     if (!module_name || !record_id) {
-      return res.status(400).json({ error: "Missing parameters" });
+      return res.status(200).json({ 
+        status: "online", 
+        message: "محرك الجلب السحابي المباشر داخل قاعدة البيانات يعمل ومستعد لاستقبال طلبات التطبيق 🚀" 
+      });
     }
 
+    // إعدادات مستودع جيت هب الخاص بك
     const owner = process.env.NAWAH_REPO_OWNER || 'zraq301-lgtm';
     const repo = process.env.NAWAH_REPO_NAME || 'Nawah-AI-db';
     const token = process.env.NAWAH_GITHUB_TOKEN;
@@ -25,9 +36,9 @@ export default async function handler(req, res) {
     const path = `database/${tenant}/${module_name}/${record_id}.json`;
     const githubUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-    // 💡 طوق النجاة: كسر الاتصال تلقائياً بعد 10 ثوانٍ لمنع الـ Timeout (300s)
+    // مؤقت أمان يقتل الطلب بعد 10 ثوانٍ لو علق جيت هب لكي لا تظهر العلامة الصفراء في السجلات
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); 
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const response = await fetch(githubUrl, {
@@ -36,10 +47,9 @@ export default async function handler(req, res) {
           'Accept': 'application/vnd.github.v3+json',
           'Cache-Control': 'no-cache'
         },
-        signal: controller.signal // ربط الـ fetch بمؤقت الإلغاء
+        signal: controller.signal
       });
 
-      // تنظيف المؤقت فوراً بمجرد وصول الرد
       clearTimeout(timeoutId);
 
       if (response.status === 200) {
@@ -47,18 +57,14 @@ export default async function handler(req, res) {
         const decodedContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
         return res.status(200).json(JSON.parse(decodedContent));
       } else {
-        // إذا كان الملف غير موجود (404) نغلق الطلب بمصفوفة فارغة منعاً لكراش الواجهة
+        // حماية الواجهة: إذا لم يجد الملف (404) يرسل مصفوفة فارغة فوراً ويقفل الاتصال بنجاح
         return res.status(200).json([]);
       }
     } catch (err) {
-      clearTimeout(timeoutId); // تنظيف احتياطي عند حدوث الخطأ
-      return res.status(500).json({ 
-        error: 'انتهت مهلة الطلب أو حدث خطأ في الاتصال بجيت هب', 
-        details: err.message 
-      });
+      clearTimeout(timeoutId);
+      return res.status(500).json({ error: 'فشل السحب السريع من السحابة', details: err.message });
     }
   }
 
-  // 💡 حماية نهائية: إذا جاء أي طلب آخر غير الـ POST لا يترك السيرفر معلقاً
   return res.status(405).json({ error: 'Method not allowed' });
 }
