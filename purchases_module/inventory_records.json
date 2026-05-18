@@ -19,5 +19,26 @@
         "total": 625
       }
     ]
+  },
+  {
+    "id": "INV-1779067115145",
+    "date": "2026-05-18",
+    "vendorId": "مورد عام",
+    "paymentMethod": "كاش",
+    "status": "completed",
+    "totalAmount": 11000,
+    "item": "دقيق ",
+    "quantity": "200",
+    "price": "55",
+    "total": 11000,
+    "items": [
+      {
+        "productId": "دقيق ",
+        "name": "دقيق ",
+        "quantity": 200,
+        "unitPrice": 55,
+        "total": 11000
+      }
+    ]
   }
 ]
