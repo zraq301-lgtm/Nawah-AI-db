@@ -1,0 +1,97 @@
+{
+  "timestamp": 1779146324333,
+  "current_stats": {
+    "totalIncome": 0,
+    "totalExpenses": 0,
+    "cashBalance": -385555,
+    "netProfit": -385555,
+    "stockValue": 305604.8
+  },
+  "staff_count": 1,
+  "yearly_trend": [
+    {
+      "month": "يناير",
+      "income": 4612,
+      "expenses": 2120,
+      "net": 2492,
+      "factor": 0.7173560908995228
+    },
+    {
+      "month": "فبراير",
+      "income": 5459,
+      "expenses": 1660,
+      "net": 3799,
+      "factor": 0.9995736030415051
+    },
+    {
+      "month": "مارس",
+      "income": 4486,
+      "expenses": 1000,
+      "net": 3486,
+      "factor": 0.6754631805511506
+    },
+    {
+      "month": "أبريل",
+      "income": 2285,
+      "expenses": 1000,
+      "net": 1285,
+      "factor": -0.058374143427580086
+    },
+    {
+      "month": "مايو",
+      "income": 2000,
+      "expenses": 1000,
+      "net": 1000,
+      "factor": -0.7568024953079282
+    },
+    {
+      "month": "يونيو",
+      "income": 2000,
+      "expenses": 1404,
+      "net": 596,
+      "factor": -0.9961646088358406
+    },
+    {
+      "month": "يوليو",
+      "income": 2000,
+      "expenses": 2080,
+      "net": -80,
+      "factor": -0.6312666378723208
+    },
+    {
+      "month": "أغسطس",
+      "income": 2810,
+      "expenses": 1874,
+      "net": 936,
+      "factor": 0.11654920485049364
+    },
+    {
+      "month": "سبتمبر",
+      "income": 4841,
+      "expenses": 1000,
+      "net": 3841,
+      "factor": 0.7936678638491531
+    },
+    {
+      "month": "أكتوبر",
+      "income": 5428,
+      "expenses": 1000,
+      "net": 4428,
+      "factor": 0.9893582466233818
+    },
+    {
+      "month": "نوفمبر",
+      "income": 4215,
+      "expenses": 1000,
+      "net": 3215,
+      "factor": 0.5849171928917617
+    },
+    {
+      "month": "ديسمبر",
+      "income": 2000,
+      "expenses": 1124,
+      "net": 876,
+      "factor": -0.1743267812229814
+    }
+  ]
+}
