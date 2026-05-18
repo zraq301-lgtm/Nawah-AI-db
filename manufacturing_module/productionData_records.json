@@ -1,0 +1,25 @@
+[
+  {
+    "date": "2026-05-18",
+    "selectedIngredients": [
+      {
+        "name": "دقيق "
+      },
+      {
+        "name": "سكر "
+      }
+    ],
+    "productionName": "معمول تمر فاخر (جاهز)",
+    "producedQty": 24,
+    "details": [
+      {
+        "name": "دقيق ",
+        "consumed": "1.900"
+      },
+      {
+        "name": "سكر ",
+        "consumed": "0.200"
+      }
+    ]
+  }
+]
