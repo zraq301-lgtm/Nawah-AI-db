@@ -1,13 +1,13 @@
 {
-  "timestamp": 1779146324333,
+  "timestamp": 1779232028982,
   "current_stats": {
     "totalIncome": 0,
     "totalExpenses": 0,
-    "cashBalance": -385555,
-    "netProfit": -385555,
-    "stockValue": 305604.8
+    "cashBalance": 0,
+    "netProfit": 0,
+    "stockValue": 0
   },
-  "staff_count": 1,
+  "staff_count": 0,
   "yearly_trend": [
     {
       "month": "يناير",
@@ -93,5 +93,8 @@
       "net": 876,
       "factor": -0.1743267812229814
     }
-  ]
+  ],
+  "customers_list": [],
+  "suppliers_list": [],
+  "staff_details": []
 }
