@@ -1,4 +1,8 @@
-// 📤 ثانياً: محرك الرفع والتحديث والحفظ المطور (POST) الاحترافي لدعم أسماء الملفات العربية
+// /api/engine.js (أو اسم ملف الـ API الخاص بك في Vercel)
+
+export default async function handler(req, res) {
+  
+  // 📤 ثانياً: محرك الرفع والتحديث والحفظ المطور (POST) الاحترافي لدعم أسماء الملفات العربية
   if (req.method === 'POST') {
     try {
       // 1. إعداد متغيرات البيئة الحاكمة للمستودع المستهدف
@@ -105,4 +109,8 @@
     } catch (err) {
       return res.status(500).json({ success: false, error: 'خطأ مباغت في سيرفر فيرسيل الداخلي', details: err.message });
     }
+  } else {
+    // التعامل مع أي طرق طلب أخرى غير الـ POST لحماية الرابط
+    return res.status(405).json({ success: false, error: 'طريقة الطلب غير مدعومة، مسموح بـ POST فقط' });
   }
+}
