@@ -1,3 +1,5 @@
+// /api/engine-get.js (أو ادمجه داخل نفس ملف الـ engine حسب بنيتك)
+
 export default async function handler(req, res) {
   // تفعيل ترويسات CORS وحماية تدمير الكاش لضمان جلب بيانات حية دائماً
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,22 +14,41 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET' || req.method === 'POST') {
-    // قراءة المتغيرات القادمة من الطلب، وإذا لم تكن موجودة (كالمتصفح) نضع قيم المخزن الافتراضية التي حددتها
+    // 1. قراءة مرنة للمتغيرات (سواء من الرابط Query Parameters أو من جسم الطلب body)
     const urlParts = req.url.split('?');
     const queryString = urlParts.length > 1 ? urlParts[1] : '';
     const searchParams = new URLSearchParams(queryString);
 
-    // دمج موديول المخزن واسم السجل بناءً على بنيتك الجديدة المباشرة
-    const module_name = searchParams.get('module_name') || req.query?.module_name || 'inventory_module';
-    const record_id = searchParams.get('record_id') || req.query?.record_id || 'stock_records';
+    // استقبال اسم الصفحة/القسم (أولوية أولى لـ page لتطابق كود الحفظ والـ Service)
+    let pageName = searchParams.get('page') || req.query?.page || req.body?.page;
+
+    // إذا لم يرسل المتغير page، نعتمد على المسميات القديمة كخيار احتياطي (Fallback)
+    if (!pageName) {
+      const module_name = searchParams.get('module_name') || req.query?.module_name || req.body?.module_name || req.body?.section;
+      const record_id = searchParams.get('record_id') || req.query?.record_id || req.body?.record_id;
+      
+      if (module_name && record_id) {
+        pageName = `${module_name}/${record_id}`;
+      } else {
+        pageName = module_name || 'بيانات_عامة';
+      }
+    }
+
+    // 2. تنظيف اسم الصفحة وإزالة علامات التنصيص الزائدة لضمان تطابق الأسماء العربية
+    let targetPageName = pageName.replace(/['"]/g, '').trim();
+
+    // بناء نفس المسار المطابق تماماً لكود الحفظ الجديد
+    let path = targetPageName.endsWith('.json') || targetPageName.includes('/') 
+      ? targetPageName 
+      : `raqqa_sections/${targetPageName}.json`;
 
     const owner = process.env.NAWAH_REPO_OWNER || 'zraq301-lgtm';
     const repo = process.env.NAWAH_REPO_NAME || 'Nawah-AI-db';
     const token = process.env.NAWAH_GITHUB_TOKEN;
 
-    // 🎯 المسار المباشر الجديد تماماً المطابق لبنية مستودعك الفعلي
-    const path = `${module_name}/${record_id}.json`;
-    const githubUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    // تشفير المسار ليكون متوافقاً مع الحروف العربية والمسافات (UTF-8 URL Encoding)
+    const encodedPath = encodeURIComponent(path);
+    const githubUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
 
     try {
       const response = await fetch(githubUrl, {
@@ -41,22 +62,28 @@ export default async function handler(req, res) {
 
       if (response.status === 200) {
         const fileData = await response.json();
-        // فك تشفير Base64 القادم من GitHub وتحويله لنص مقروء
+        
+        // فك تشفير Base64 القادم من GitHub وتحويله لنص مقروء بدقة (UTF-8)
         const decodedContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
         
-        // تحويل النص المقروء إلى مصفوفة JSON حقيقية
+        // تحويل النص المسترجع إلى كائن ومصفوفة JSON حقيقية
         const parsedData = JSON.parse(decodedContent);
         
-        // 🚀 الضخ المباشر: إرسال المصفوفة الصافية لتظهر في المتصفح والواجهة فوراً
+        // 🚀 الضخ المباشر: إعادة الكائن المنظم بكامل تصنيفات اللوحة ليعرض في الواجهة فوراً
         return res.status(200).json(parsedData);
       } else {
-        // إذا كان الملف غير موجود بعد في المستودع نرجع مصفوفة فارغة جاهزة للاستقبال
-        return res.status(200).json([]);
+        // إذا كان الملف غير موجود بعد في المستودع (قسم جديد أول مرة)، نرجع مصفوفة فارغة أو كائن مهيأ
+        return res.status(200).json({
+          pageName: targetPageName,
+          message: "ملف جديد، لا توجد بيانات مخزنة حالياً",
+          media: { videoUrl: '', imageUrl: '', audioUrl: '' },
+          article: { title: '', body: '', embeddedMedia: { type: 'none', url: '' } }
+        });
       }
     } catch (err) {
-      return res.status(200).json({ error: "فشل الاتصال بقاعدة البيانات السحابية", details: err.message });
+      return res.status(500).json({ success: false, error: "فشل الاتصال بقاعدة البيانات السحابية", details: err.message });
     }
   }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+  return res.status(405).json({ success: false, error: 'طريقة الطلب غير مدعومة، مسموح بـ GET أو POST فقط' });
 }
