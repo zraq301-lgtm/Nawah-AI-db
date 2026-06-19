@@ -1,8 +1,8 @@
-// /api/engine.js (أو اسم ملف الـ API الخاص بك في Vercel)
+// /api/engine.js
 
 export default async function handler(req, res) {
   
-  // 📤 ثانياً: محرك الرفع والتحديث والحفظ المطور (POST) الاحترافي لدعم أسماء الملفات العربية
+  // 📤 ثانياً: محرك الرفع والتحديث والحفظ المطور (POST) التراكمي (يضيف ولا يمسح القديم)
   if (req.method === 'POST') {
     try {
       // 1. إعداد متغيرات البيئة الحاكمة للمستودع المستهدف
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
           // إذا كان الـ content المرسل عبارة عن نص مصفوفة أو كائن نصي، نقوم بعمل Parse له
           finalDataToSave = JSON.parse(content);
         } catch (e) {
-          // إذا كان نصاً خاماً (مثل رابط فيديو أو نص عادي)، نحفظه في هيكل منظم لكي لا ينهار الملف
+          // إذا كان نصاً خاماً، نحفظه في هيكل منظم لكي لا ينهار الملف
           finalDataToSave = {
             section_name: targetPageName,
             content_data: content,
@@ -55,8 +55,16 @@ export default async function handler(req, res) {
         }
       }
 
-      // 5. فحص ذكي: هل الملف موجود مسبقاً في المستودع؟ (لجلب الـ sha لتجنب أخطاء التحديث)
+      // تأمين وجود حقل المعرف الفريد والتاريخ لكل منشور لتسهيل عرضه بالترتيب في الواجهة
+      if (typeof finalDataToSave === 'object' && !Array.isArray(finalDataToSave)) {
+        if (!finalDataToSave.lastUpdated) finalDataToSave.lastUpdated = new Date().toISOString();
+        if (!finalDataToSave.pageName) finalDataToSave.pageName = targetPageName;
+      }
+
+      // 5. فحص ذكي وقراءة البيانات القديمة: هل الملف موجود مسبقاً في المستودع؟
       let sha = null;
+      let existingList = []; // مصفوفة لتجميع البيانات القديمة
+
       try {
         const checkRes = await fetch(githubUrl, {
           headers: {
@@ -66,21 +74,38 @@ export default async function handler(req, res) {
           },
           cache: 'no-store'
         });
+
         if (checkRes.status === 200) {
           const checkData = await checkRes.json();
           sha = checkData.sha; // حفظ الـ sha الخاص بالملف الحالي ليتم التعديل عليه بسلام
+          
+          // 📥 جلب المحتوى القديم وفك تشفيره من الـ Base64
+          if (checkData.content) {
+            const decodedOldContent = Buffer.from(checkData.content, 'base64').toString('utf-8');
+            const parsedOldData = JSON.parse(decodedOldContent);
+            
+            // تحويل البيانات القديمة لمصفوفة إذا لم تكن كذلك
+            if (Array.isArray(parsedOldData)) {
+              existingList = parsedOldData;
+            } else {
+              existingList = [parsedOldData]; // إذا كان كائناً واحداً قديماً، نضعه داخل مصفوفة
+            }
+          }
         }
       } catch (e) {
         console.log(`إنشاء ملف جديد لأول مرة باسم: ${path}`);
       }
 
-      // 6. تحويل البيانات وتحويلها إلى نظام التشفير العالمي Base64 المطلوب من قبل جيت هاب
-      const contentString = JSON.stringify(finalDataToSave, null, 2);
+      // 6. دمج البيانات الجديدة مع المصفوفة التراكمية التاريخية
+      existingList.push(finalDataToSave);
+
+      // تحويل المصفوفة الكاملة إلى نص JSON منسق ونظيف
+      const contentString = JSON.stringify(existingList, null, 2);
       const base64Content = Buffer.from(contentString, 'utf-8').toString('base64');
 
       // 7. بناء كائن الطلب (Payload) الموجه لـ GitHub API
       const putBody = {
-        message: `✨ Raqqa Admin Auto-Sync: Updated ${path}`,
+        message: `✨ Raqqa Admin Auto-Sync: Appended new post to ${path}`,
         content: base64Content
       };
       if (sha) putBody.sha = sha; // نرفق الـ sha فقط إذا كانت العملية تحديث لملف قائم
@@ -99,7 +124,7 @@ export default async function handler(req, res) {
       if (saveResponse.status === 200 || saveResponse.status === 201) {
         return res.status(200).json({ 
           success: true, 
-          message: `تم حفظ صفحة [${targetPageName}] وتأمينها في جيت هاب بنجاح 🔐` 
+          message: `تم إضافة وحفظ البيانات الجديدة في صفحة [${targetPageName}] بنجاح دون مسح الأرشيف القديم 🔐` 
         });
       } else {
         const errorData = await saveResponse.json();
