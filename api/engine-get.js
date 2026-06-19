@@ -1,4 +1,4 @@
-// /api/engine-get.js (أو ادمجه داخل نفس ملف الـ engine حسب بنيتك)
+// /api/engine-get.js
 
 export default async function handler(req, res) {
   // تفعيل ترويسات CORS وحماية تدمير الكاش لضمان جلب بيانات حية دائماً
@@ -69,16 +69,12 @@ export default async function handler(req, res) {
         // تحويل النص المسترجع إلى كائن ومصفوفة JSON حقيقية
         const parsedData = JSON.parse(decodedContent);
         
-        // 🚀 الضخ المباشر: إعادة الكائن المنظم بكامل تصنيفات اللوحة ليعرض في الواجهة فوراً
+        // 🚀 الضخ المباشر: إعادة المصفوفة التراكمية التاريخية بالكامل لتعرض في الواجهة فوراً
         return res.status(200).json(parsedData);
       } else {
-        // إذا كان الملف غير موجود بعد في المستودع (قسم جديد أول مرة)، نرجع مصفوفة فارغة أو كائن مهيأ
-        return res.status(200).json({
-          pageName: targetPageName,
-          message: "ملف جديد، لا توجد بيانات مخزنة حالياً",
-          media: { videoUrl: '', imageUrl: '', audioUrl: '' },
-          article: { title: '', body: '', embeddedMedia: { type: 'none', url: '' } }
-        });
+        // 🎯 التعديل الجوهري هنا: إذا كان الملف غير موجود (قسم جديد أول مرة)، نرجع مصفوفة فارغة 
+        // لتتوافق مع عملية الـ Array.map() في واجهة المستخدم دون أي أخطاء
+        return res.status(200).json([]);
       }
     } catch (err) {
       return res.status(500).json({ success: false, error: "فشل الاتصال بقاعدة البيانات السحابية", details: err.message });
