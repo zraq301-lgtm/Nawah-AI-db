@@ -16,23 +16,23 @@ export default async function handler(req, res) {
   const repo = process.env.NAWAH_REPO_NAME || 'Nawah-AI-db';
   const token = process.env.NAWAH_GITHUB_TOKEN;
 
-  // 🗑️ محرك الحذف السحابي الذكي (DELETE)
-  if (req.method === 'DELETE') {
+  // 🗑️ تحويل استقبال المحرك ليعمل على ميثود POST المتوافقة مع التطبيق والخدمة
+  if (req.method === 'POST') {
     try {
-      // استقبال اسم الموديول واسم السجل المطلوب تصفيره أو حذفه من السحابة
-      // يمكن استقبالها من الـ Query للرابط أو الـ Body للطلب
-      const module_name = req.query.module_name || req.body?.module_name;
-      const record_id = req.query.record_id || req.body?.record_id;
+      // استقبال المتغيرات المطابقة تماماً لكود الخدمة (page و id) أو القديمة للاحتياط
+      const module_name = req.body?.page || req.query?.module_name || req.body?.module_name;
+      const record_id = req.body?.id || req.query?.record_id || req.body?.record_id;
 
       if (!module_name || !record_id) {
-        return res.status(400).json({ success: false, error: 'برجاء تحديد الموديول والسجل المطلوب حذفه' });
+        return res.status(400).json({ success: false, error: 'برجاء تحديد اسم القسم (page) والمعرف (id) المطلوب حذفه' });
       }
 
-      // المسار المباشر الموحد والمطابق تماماً للجلب والحفظ
+      // المسار المباشر الموحد والمطابق تماماً للبنية المخزنة (اسم القسم كفولدر أو اسم الملف)
+      // إذا كان القسم يخزن كملف جيسون منفرد، تأكدي من المسار. هنا تم ضبطه كـ: page/id.json
       const path = `${module_name}/${record_id}.json`;
       const githubUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-      // الخطوة 1: الفحص السريع عن الملف لجلب الـ sha الخاص به
+      // الخطوة 1: الفحص السريع عن الملف في GitHub لجلب الـ sha الخاص به
       let sha = null;
       try {
         const checkRes = await fetch(githubUrl, {
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
           const checkData = await checkRes.json();
           sha = checkData.sha; // الإمساك بمعرف النسخة بنجاح
         } else {
-          // إذا كان الملف غير موجود أصلاً بسيرفر السحابة، نعتبر العملية ناجحة تلافياً للمشاكل
+          // إذا كان الملف غير موجود أصلاً بسيرفر جيت هب، نعتبر العملية ناجحة تلافياً للمشاكل
           return res.status(200).json({ success: true, message: 'الملف غير موجود بالفعل في قاعدة البيانات السحابية' });
         }
       } catch (e) {
@@ -57,12 +57,12 @@ export default async function handler(req, res) {
 
       // الخطوة 2: إرسال أمر التدمير والحذف الفعلي إلى GitHub API
       const deleteBody = {
-        message: `🗑️ Maamoul ERP Auto-Sync: Deleted ${module_name}/${record_id}`,
+        message: `🗑️ Raqqa App Auto-Sync: Deleted ${module_name}/${record_id}`,
         sha: sha // إرسال الـ sha إجباري هنا ليوافق جيت هب على الحذف
       };
 
       const deleteResponse = await fetch(githubUrl, {
-        method: 'DELETE', // ميثود الحذف الرسمي
+        method: 'DELETE', // نترك جيت هب يستقبلها DELETE داخلياً
         headers: {
           'Authorization': `token ${token}`,
           'Accept': 'application/vnd.github.v3+json',
