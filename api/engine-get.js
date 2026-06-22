@@ -1,14 +1,16 @@
+import { kv } from '@vercel/kv';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET' || req.method === 'POST') {
+    // نمنع كاش المتصفح العادي لأننا سنعتمد على كاش KV المضمون والأحدث دائماً
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
     const urlParts = req.url.split('?');
     const queryString = urlParts.length > 1 ? urlParts[1] : '';
     const searchParams = new URLSearchParams(queryString);
@@ -24,21 +26,31 @@ export default async function handler(req, res) {
     let targetPageName = pageName.replace(/['"]/g, '').trim();
     let path = targetPageName.endsWith('.json') || targetPageName.includes('/') ? targetPageName : `raqqa_sections/${targetPageName}.json`;
 
-    const owner = process.env.NAWAH_REPO_OWNER || 'zraq301-lgtm';
-    const repo = process.env.NAWAH_REPO_NAME || 'Nawah-AI-db';
-    const token = process.env.NAWAH_GITHUB_TOKEN;
-
-    const encodedPath = encodeURIComponent(path);
-    const githubUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
+    // مفتاح فريد لحفظ هذه الصفحة بالتحديد داخل Vercel KV
+    const cacheKey = `cache:${path}`;
 
     try {
+      // 1. محاولة جلب البيانات من كاش Vercel KV أولاً
+      const cachedData = await kv.get(cacheKey);
+
+      if (cachedData) {
+        // 🔥 إذا كانت البيانات موجودة في KV (Cache Hit) نعيدها فوراً ونوفر طلب GitHub
+        return res.status(200).json(cachedData);
+      }
+
+      // 2. إذا لم تكن موجودة (Cache Miss)، نذهب لـ GitHub
+      const owner = process.env.NAWAH_REPO_OWNER || 'zraq301-lgtm';
+      const repo = process.env.NAWAH_REPO_NAME || 'Nawah-AI-db';
+      const token = process.env.NAWAH_GITHUB_TOKEN;
+
+      const encodedPath = encodeURIComponent(path);
+      const githubUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
+
       const response = await fetch(githubUrl, {
         headers: {
           'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Cache-Control': 'no-cache'
-        },
-        cache: 'no-store'
+          'Accept': 'application/vnd.github.v3+json'
+        }
       });
 
       if (response.status === 200) {
@@ -46,8 +58,10 @@ export default async function handler(req, res) {
         const decodedContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
         const parsedData = JSON.parse(decodedContent);
 
-        // 🚀 الحل البرمجي الصحيح: نرسل المصفوفة الخام النظيفة مباشرة إلى كود الخدمة والواجهة
-        // تم إلغاء كود الحقن والالتفاف المزيف بالكامل لضمان قراءة الـ ID الحقيقي للتحكم والحذف
+        // 3. تخزين البيانات في Vercel KV مع تحديد وقت انتهاء (مثلاً 600 ثانية = 10 دقائق)
+        // هذا يعني أننا لن نكلم جيت هب لهذه الصفحة مجدداً إلا بعد 10 دقائق
+        await kv.set(cacheKey, parsedData, { ex: 600 });
+
         return res.status(200).json(parsedData);
       } else {
         return res.status(200).json([]);
