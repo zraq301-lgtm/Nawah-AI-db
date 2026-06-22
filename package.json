@@ -1,11 +1,42 @@
-{
-  "name": "nawha-db-engine",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "echo 'No build step needed for Serverless Functions'"
-  },
-  "dependencies": {},
-  "devDependencies": {}
-}
+import React from 'react';
+import ReactPlayer from 'react-player';
+
+const VideoList = () => {
+  const videos = [
+    {
+      id: "SZDRYgQnlEE",
+      title: "المحاضرة الاولي- مقدمة فى تكنولوجيا التعليم",
+      channel: "نيو أكاديمي جامعات ومعاهد"
+    },
+    {
+      id: "4J8SSbrD3WA",
+      title: "مقدمة عن صعوبات التعلم",
+      channel: "منصة التعليم الالكتروني"
+    }
+  ];
+
+  return (
+    <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <h1>قائمة الفيديوهات التعليمية</h1>
+      
+      {videos.map((video) => (
+        <div key={video.id} style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px' }}>
+          <h3>{video.title}</h3>
+          <p>القناة: {video.channel}</p>
+          
+          {/* هنا قمنا باستخدام المكتبة لعرض الفيديو */}
+          <div className='player-wrapper'>
+            <ReactPlayer 
+              url={`https://www.youtube.com/watch?v=${video.id}`} 
+              width='100%'
+              height='360px'
+              controls={true} // لإظهار أزرار التحكم
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default VideoList;
