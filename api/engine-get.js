@@ -1,4 +1,5 @@
-import { kv } from '@vercel/kv';
+// 🚀 كاش داخل ذاكرة السيرفر اللحظية لفيرسل (مجاني وبدون مكتبات)
+let localMemoryCache = {};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,8 +9,13 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET' || req.method === 'POST') {
-    // نمنع كاش المتصفح العادي لأننا سنعتمد على كاش KV المضمون والأحدث دائماً
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    
+    // 1️⃣ خط الدفاع الأول: كاش شبكة فيرسل (CDN) تم ضبطه على 30 ثانية للتطوير
+    if (req.method === 'GET') {
+      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=5');
+    } else {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
 
     const urlParts = req.url.split('?');
     const queryString = urlParts.length > 1 ? urlParts[1] : '';
@@ -26,19 +32,16 @@ export default async function handler(req, res) {
     let targetPageName = pageName.replace(/['"]/g, '').trim();
     let path = targetPageName.endsWith('.json') || targetPageName.includes('/') ? targetPageName : `raqqa_sections/${targetPageName}.json`;
 
-    // مفتاح فريد لحفظ هذه الصفحة بالتحديد داخل Vercel KV
     const cacheKey = `cache:${path}`;
+    const now = Date.now();
+
+    // 2️⃣ خط الدفاع الثاني: كاش ذاكرة الرام اللحظية (Memory Cache) تم ضبطه أيضاً على 30 ثانية
+    // (30 * 1000 مللي ثانية)
+    if (localMemoryCache[cacheKey] && (now - localMemoryCache[cacheKey].timestamp < 30 * 1000)) {
+      return res.status(200).json(localMemoryCache[cacheKey].data);
+    }
 
     try {
-      // 1. محاولة جلب البيانات من كاش Vercel KV أولاً
-      const cachedData = await kv.get(cacheKey);
-
-      if (cachedData) {
-        // 🔥 إذا كانت البيانات موجودة في KV (Cache Hit) نعيدها فوراً ونوفر طلب GitHub
-        return res.status(200).json(cachedData);
-      }
-
-      // 2. إذا لم تكن موجودة (Cache Miss)، نذهب لـ GitHub
       const owner = process.env.NAWAH_REPO_OWNER || 'zraq301-lgtm';
       const repo = process.env.NAWAH_REPO_NAME || 'Nawah-AI-db';
       const token = process.env.NAWAH_GITHUB_TOKEN;
@@ -58,15 +61,21 @@ export default async function handler(req, res) {
         const decodedContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
         const parsedData = JSON.parse(decodedContent);
 
-        // 3. تخزين البيانات في Vercel KV مع تحديد وقت انتهاء (مثلاً 600 ثانية = 10 دقائق)
-        // هذا يعني أننا لن نكلم جيت هب لهذه الصفحة مجدداً إلا بعد 10 دقائق
-        await kv.set(cacheKey, parsedData, { ex: 600 });
+        // حفظ النسخة في ذاكرة الرام المؤقتة مع التوقيت الحالي
+        localMemoryCache[cacheKey] = {
+          data: parsedData,
+          timestamp: now
+        };
 
         return res.status(200).json(parsedData);
       } else {
         return res.status(200).json([]);
       }
+
     } catch (err) {
+      if (localMemoryCache[cacheKey]) {
+        return res.status(200).json(localMemoryCache[cacheKey].data);
+      }
       return res.status(500).json({ success: false, error: "فشل الاتصال بقاعدة البيانات", details: err.message });
     }
   }
